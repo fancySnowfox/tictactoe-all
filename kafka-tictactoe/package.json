@@ -1,0 +1,19 @@
+{
+  "name": "kafka-tictactoe",
+  "version": "1.0.0",
+  "description": "Multiplayer tic-tac-toe using Kafka for real-time event streaming",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces",
+    "dev:full": "docker-compose up -d && npm run dev --workspaces",
+    "build": "npm run build --workspaces",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down --volumes"
+  },
+  "dependencies": {
+    "cors": "^2.8.6"
+  }
+}
