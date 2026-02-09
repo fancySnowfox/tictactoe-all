@@ -7,12 +7,24 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Kafka setup
-const kafka = new Kafka({
+const kafkaConfig: any = {
   clientId: `tictactoe-server-${uuidv4()}`,
   brokers: [process.env.KAFKA_BROKER || 'localhost:9092'],
   connectionTimeout: 10000,
   requestTimeout: 30000,
-});
+};
+
+// Add SSL/SASL only if credentials are provided
+if (process.env.KAFKA_USERNAME) {
+  kafkaConfig.ssl = true;
+  kafkaConfig.sasl = {
+    mechanism: 'scram-sha-256',
+    username: process.env.KAFKA_USERNAME,
+    password: process.env.KAFKA_PASSWORD,
+  };
+}
+
+const kafka = new Kafka(kafkaConfig);
 
 const producer = kafka.producer();
 const admin = kafka.admin();
