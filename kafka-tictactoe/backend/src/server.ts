@@ -34,7 +34,15 @@ const GAME_MOVES_TOPIC = 'tic-tac-toe-moves';
 const GAME_STATE_TOPIC = 'tic-tac-toe-state';
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://tictactoe.snowfox.club',
+    'https://tictactoe.snowfox.club',
+  ],
+  credentials: true,
+}));
 app.use(express.json());
 
 // Game store
