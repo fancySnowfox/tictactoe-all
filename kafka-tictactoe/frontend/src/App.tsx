@@ -3,22 +3,6 @@ import axios from 'axios';
 import styled from 'styled-components';
 import { Game } from './Game';
 
-const globalStyles = `
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-      sans-serif;
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    color: #333;
-  }
-`;
-
 const Container = styled.div`
   min-height: 100vh;
   display: flex;
