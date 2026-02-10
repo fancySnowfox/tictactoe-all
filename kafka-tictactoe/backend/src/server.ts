@@ -1,37 +1,25 @@
 import express from 'express';
 import cors from 'cors';
-import { Kafka } from 'kafkajs';
+import http from 'http';
+import { Server as SocketIOServer } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
 
-// Kafka setup
-const kafkaConfig: any = {
-  clientId: `tictactoe-server-${uuidv4()}`,
-  brokers: [process.env.KAFKA_BROKER || 'localhost:9092'],
-  connectionTimeout: 10000,
-  requestTimeout: 30000,
-};
-
-// Add SSL/SASL only if credentials are provided
-if (process.env.KAFKA_USERNAME) {
-  kafkaConfig.ssl = true;
-  kafkaConfig.sasl = {
-    mechanism: 'scram-sha-256',
-    username: process.env.KAFKA_USERNAME,
-    password: process.env.KAFKA_PASSWORD,
-  };
-}
-
-const kafka = new Kafka(kafkaConfig);
-
-const producer = kafka.producer();
-const admin = kafka.admin();
-
-// Topics
-const GAME_MOVES_TOPIC = 'tic-tac-toe-moves';
-const GAME_STATE_TOPIC = 'tic-tac-toe-state';
+// Socket.IO setup with CORS
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://tictactoe.snowfox.club',
+      'https://tictactoe.snowfox.club',
+    ],
+    credentials: true,
+  },
+});
 
 // Middleware
 app.use(cors({
@@ -48,15 +36,19 @@ app.use(express.json());
 // Game store
 interface GameRoom {
   id: string;
-  players: { clientId: string; name: string }[];
+  players: { clientId: string; name: string; socketId?: string }[];
   grid: (number | null)[];
   dimensions: number;
   nextPlayer: number;
   started: boolean;
   winner: number | null;
+  createdAt: number;
 }
 
 const gameRooms: Map<string, GameRoom> = new Map();
+
+// Track socket to room mapping
+const socketToRoom: Map<string, string> = new Map();
 
 // Check for winner
 function checkWinner(grid: (number | null)[], dimensions: number): number | null {
@@ -124,29 +116,7 @@ function isBoardFull(grid: (number | null)[]): boolean {
   return grid.every((cell) => cell !== null);
 }
 
-// Initialize Kafka topics
-async function initializeTopics() {
-  try {
-    await admin.connect();
-    const topics = await admin.listTopics();
-    
-    if (!topics.includes(GAME_MOVES_TOPIC)) {
-      await admin.createTopics({
-        topics: [
-          { topic: GAME_MOVES_TOPIC, numPartitions: 1, replicationFactor: 1 },
-          { topic: GAME_STATE_TOPIC, numPartitions: 1, replicationFactor: 1 },
-        ],
-      });
-      console.log('Topics created successfully');
-    }
-    
-    await admin.disconnect();
-  } catch (error) {
-    console.error('Error initializing Kafka topics:', error);
-  }
-}
-
-// API Endpoints
+// REST API Endpoints (keep these for frontend compatibility)
 
 // Create a new game room
 app.post('/api/rooms', (req, res) => {
@@ -159,9 +129,10 @@ app.post('/api/rooms', (req, res) => {
     players: [{ clientId, name: playerName || 'Player 1' }],
     grid: new Array(dimensions * dimensions).fill(null),
     dimensions,
-    nextPlayer: 1, // Player X
+    nextPlayer: 1,
     started: false,
     winner: null,
+    createdAt: Date.now(),
   };
 
   gameRooms.set(roomId, room);
@@ -208,8 +179,8 @@ app.get('/api/rooms/:roomId', (req, res) => {
   res.json(room);
 });
 
-// Make a move (publishes to Kafka)
-app.post('/api/rooms/:roomId/move', async (req, res) => {
+// Make a move
+app.post('/api/rooms/:roomId/move', (req, res) => {
   const { roomId } = req.params;
   const { clientId, index } = req.body;
   const room = gameRooms.get(roomId);
@@ -230,61 +201,30 @@ app.post('/api/rooms/:roomId/move', async (req, res) => {
   // Apply move
   const playerValue = room.nextPlayer;
   room.grid[index] = playerValue;
-  
+
   // Check for winner
   const winner = checkWinner(room.grid, room.dimensions);
   if (winner) {
     room.winner = winner;
   }
-  
+
   // Check if board is full (draw)
   const boardFull = isBoardFull(room.grid);
-  
+
   room.nextPlayer = playerValue === 1 ? 2 : 1;
 
-  // Publish move to Kafka
-  try {
-    await producer.send({
-      topic: GAME_MOVES_TOPIC,
-      messages: [
-        {
-          key: roomId,
-          value: JSON.stringify({
-            roomId,
-            clientId,
-            playerName: player.name,
-            index,
-            playerValue,
-            timestamp: Date.now(),
-          }),
-        },
-      ],
-    });
+  // Broadcast game state to all players in room via Socket.IO
+  io.to(roomId).emit('game:state-updated', {
+    roomId,
+    grid: room.grid,
+    nextPlayer: room.nextPlayer,
+    winner: room.winner,
+    boardFull,
+    isDraw: boardFull && !room.winner,
+    timestamp: Date.now(),
+  });
 
-    // Publish state update to Kafka
-    await producer.send({
-      topic: GAME_STATE_TOPIC,
-      messages: [
-        {
-          key: roomId,
-          value: JSON.stringify({
-            roomId,
-            grid: room.grid,
-            nextPlayer: room.nextPlayer,
-            winner: room.winner,
-            boardFull,
-            isDraw: boardFull && !room.winner,
-            timestamp: Date.now(),
-          }),
-        },
-      ],
-    });
-
-    res.json({ success: true, room });
-  } catch (error) {
-    console.error('Error publishing move to Kafka:', error);
-    res.status(500).json({ error: 'Failed to publish move' });
-  }
+  res.json({ success: true, room });
 });
 
 // Health check
@@ -292,28 +232,134 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Start server
-async function startServer() {
-  try {
-    await initializeTopics();
-    await producer.connect();
-    console.log('✓ Kafka producer connected');
+// Socket.IO event handlers
+io.on('connection', (socket) => {
+  console.log(`✓ Client connected: ${socket.id}`);
 
-    app.listen(PORT, () => {
-      console.log(`✓ Server running on http://localhost:${PORT}`);
-      console.log(`✓ Kafka broker: ${process.env.KAFKA_BROKER || 'localhost:9092'}`);
+  // Join a game room
+  socket.on('room:join', ({ roomId, clientId }) => {
+    const room = gameRooms.get(roomId);
+    
+    if (!room) {
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+
+    // Update socket ID for player
+    const player = room.players.find((p) => p.clientId === clientId);
+    if (player) {
+      player.socketId = socket.id;
+    }
+
+    // Join socket to room
+    socket.join(roomId);
+    socketToRoom.set(socket.id, roomId);
+
+    // Notify all players in room
+    io.to(roomId).emit('room:state', {
+      roomId,
+      players: room.players.map((p) => ({ clientId: p.clientId, name: p.name })),
+      grid: room.grid,
+      nextPlayer: room.nextPlayer,
+      winner: room.winner,
+      timestamp: Date.now(),
     });
-  } catch (error) {
-    console.error('Failed to start server:', error);
-    process.exit(1);
-  }
+
+    console.log(`✓ Client ${socket.id} joined room ${roomId}`);
+  });
+
+  // Handle move
+  socket.on('game:move', ({ roomId, clientId, index }) => {
+    const room = gameRooms.get(roomId);
+
+    if (!room) {
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+
+    const player = room.players.find((p) => p.clientId === clientId);
+    if (!player) {
+      socket.emit('error', { message: 'Player not found' });
+      return;
+    }
+
+    if (room.grid[index] !== null) {
+      socket.emit('error', { message: 'Square already occupied' });
+      return;
+    }
+
+    // Apply move
+    const playerValue = room.nextPlayer;
+    room.grid[index] = playerValue;
+
+    // Check for winner
+    const winner = checkWinner(room.grid, room.dimensions);
+    if (winner) {
+      room.winner = winner;
+    }
+
+    // Check if board is full
+    const boardFull = isBoardFull(room.grid);
+
+    room.nextPlayer = playerValue === 1 ? 2 : 1;
+
+    // Broadcast updated state to all players in room
+    io.to(roomId).emit('game:state-updated', {
+      roomId,
+      grid: room.grid,
+      nextPlayer: room.nextPlayer,
+      winner: room.winner,
+      boardFull,
+      isDraw: boardFull && !room.winner,
+      timestamp: Date.now(),
+    });
+  });
+
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    const roomId = socketToRoom.get(socket.id);
+    socketToRoom.delete(socket.id);
+
+    if (roomId) {
+      const room = gameRooms.get(roomId);
+      if (room) {
+        // Remove player from room
+        room.players = room.players.filter((p) => p.socketId !== socket.id);
+
+        if (room.players.length === 0) {
+          // Delete room if empty
+          gameRooms.delete(roomId);
+          console.log(`✓ Room ${roomId} deleted (empty)`);
+        } else {
+          // Notify remaining players
+          io.to(roomId).emit('room:player-disconnected', { roomId });
+        }
+      }
+    }
+
+    console.log(`✓ Client disconnected: ${socket.id}`);
+  });
+});
+
+// Start server
+let started = false;
+
+function startServer() {
+  if (started) return;
+  started = true;
+
+  server.listen(PORT, () => {
+    console.log(`✓ Server running on http://localhost:${PORT}`);
+    console.log(`✓ WebSocket ready for connections`);
+  });
 }
 
 // Graceful shutdown
-process.on('SIGINT', async () => {
+process.on('SIGINT', () => {
   console.log('Shutting down gracefully...');
-  await producer.disconnect();
-  process.exit(0);
+  server.close(() => {
+    process.exit(0);
+  });
 });
 
 startServer();

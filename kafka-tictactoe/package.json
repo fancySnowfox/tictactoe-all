@@ -1,7 +1,7 @@
 {
   "name": "kafka-tictactoe",
   "version": "1.0.0",
-  "description": "Multiplayer tic-tac-toe using Kafka for real-time event streaming",
+  "description": "Real-time multiplayer tic-tac-toe game using WebSockets",
   "workspaces": [
     "frontend",
     "backend"

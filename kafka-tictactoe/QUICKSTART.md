@@ -1,20 +1,6 @@
 # Quick Start Guide
 
-## Step 1: Start Kafka (Required)
-
-Open a terminal and run:
-
-```bash
-docker-compose up -d
-```
-
-Wait 5-10 seconds for Kafka to fully initialize. You can check the status with:
-
-```bash
-docker-compose logs kafka | tail -20
-```
-
-## Step 2: Install Dependencies
+## Step 1: Install Dependencies
 
 ```bash
 npm install
@@ -22,9 +8,9 @@ npm install
 
 This will install all dependencies for both the frontend and backend workspaces.
 
-## Step 3: Start Backend Server
+## Step 2: Start Backend Server
 
-In a new terminal:
+In a terminal:
 
 ```bash
 npm run dev --workspace=backend
@@ -32,7 +18,7 @@ npm run dev --workspace=backend
 
 You should see: `✓ Server running on http://localhost:3001`
 
-## Step 4: Start Frontend Server
+## Step 3: Start Frontend Server
 
 In another terminal:
 
@@ -42,11 +28,11 @@ npm run dev --workspace=frontend
 
 You should see: `Local: http://localhost:5173/`
 
-## Step 5: Open the App
+## Step 4: Open the App
 
 Open your browser and navigate to: **http://localhost:5173**
 
-## Step 6: Play!
+## Step 5: Play!
 
 1. Enter your name
 2. **Create a Room** to host a game
@@ -67,16 +53,16 @@ Open your browser and navigate to: **http://localhost:5173**
 
 ## Troubleshooting
 
-### Backend Won't Connect to Kafka
+### Backend Won't Start
 ```bash
-# Check if Kafka is running
-docker-compose ps
+# Check if port 3001 is already in use
+lsof -i :3001
 
-# View Kafka logs
-docker-compose logs kafka
+# Kill the process using port 3001 (if needed)
+kill -9 <PID>
 
-# Restart Kafka
-docker-compose restart kafka
+# Run on a different port
+PORT=3002 npm run dev --workspace=backend
 ```
 
 ### NPM Dependency Issues
@@ -86,16 +72,20 @@ rm -rf node_modules package-lock.json
 npm install
 ```
 
+### WebSocket Connection Failed
+- Check browser console (F12) for error messages
+- Verify backend is running on port 3001
+- Try refreshing the page or hard-refresh (Ctrl+Shift+R)
+
 ### Port Already in Use
-- Backend (3001): Run backend on different port with `PORT=3002 npm run dev --workspace=backend`
+- Backend (3001): Use `PORT=3002 npm run dev --workspace=backend`
 - Frontend (5173): Vite will automatically try the next available port
 
 ## Key Files
 
-- **Backend**: `backend/src/server.ts` - Express server with Kafka producer
-- **Frontend**: `frontend/src/App.tsx` - Home screen and game setup
-- **Game Component**: `frontend/src/Game.tsx` - Game board and move logic
-- **Docker**: `docker-compose.yml` - Kafka infrastructure
+- **Backend**: [backend/src/server.ts](backend/src/server.ts) - Express server with Socket.IO
+- **Frontend**: [frontend/src/App.tsx](frontend/src/App.tsx) - Home screen and game setup
+- **Game Component**: [frontend/src/Game.tsx](frontend/src/Game.tsx) - Game board and move logic
 
 ## Next Steps
 

@@ -1,31 +1,22 @@
-# Kafka Tic-Tac-Toe
+# Tic-Tac-Toe - Real-Time Multiplayer Game
 
-A real-time multiplayer tic-tac-toe game using Apache Kafka for event streaming and React for the frontend.
+A real-time multiplayer tic-tac-toe game using Socket.IO for instant updates and React for the frontend.
 
 ## Architecture
 
 - **Frontend**: React 18 + TypeScript + Vite
-- **Backend**: Node.js + Express + KafkaJS
-- **Message Broker**: Apache Kafka (Docker)
-- **Communication**: REST API + Kafka topics
+- **Backend**: Node.js + Express + Socket.IO
+- **Communication**: REST API + WebSockets
+- **Real-Time Updates**: Instant move synchronization via Socket.IO
 
 ## Quick Start
 
 ### Prerequisites
 
 - Node.js 18+
-- Docker and Docker Compose
 - npm or yarn
 
-### 1. Start Kafka
-
-```bash
-docker-compose up -d
-```
-
-Wait for Kafka to be ready (check logs with `docker-compose logs kafka`).
-
-### 2. Install Dependencies
+### 1. Install Dependencies
 
 ```bash
 npm install
@@ -33,7 +24,7 @@ npm install
 
 This installs dependencies for both frontend and backend workspaces.
 
-### 3. Start Backend
+### 2. Start Backend
 
 ```bash
 npm run dev --workspace=backend
@@ -41,7 +32,7 @@ npm run dev --workspace=backend
 
 The backend server will start on `http://localhost:3001`.
 
-### 4. Start Frontend (in another terminal)
+### 3. Start Frontend (in another terminal)
 
 ```bash
 npm run dev --workspace=frontend
@@ -88,10 +79,17 @@ Body: { clientId: string, index: number }
 Response: { success: boolean, room }
 ```
 
-## Kafka Topics
+## WebSocket Events
 
-- **tic-tac-toe-moves**: All player moves (key: roomId)
-- **tic-tac-toe-state**: Game state updates (key: roomId)
+**Client → Server**: Real-time game communication
+- `room:join` - Join a game room via WebSocket
+- `game:move` - Send a move to all players in room
+
+**Server → Client**: Game updates broadcast to all players
+- `room:state` - Complete room state (players, grid, winner)
+- `game:state-updated` - Updated board state after each move
+- `room:player-disconnected` - Notification when a player leaves
+- `error` - Error messages from server
 
 ## Project Structure
 
@@ -130,44 +128,51 @@ npm run build --workspace=frontend
 npm run build --workspace=backend
 ```
 
-### Stop Kafka
+### Stop Backend
 ```bash
-docker-compose down -v
+# Press Ctrl+C in the terminal running the backend
 ```
 
 ## Features
 
-- ✅ Real-time move synchronization via Kafka
+- ✅ Real-time move synchronization via WebSockets
 - ✅ Support for 3x3, 4x4, and 5x5 board sizes
 - ✅ Responsive UI for mobile and desktop
 - ✅ Automatic room creation and joining
-- ✅ Room polling for opponent detection
-- ✅ Game state persistence during session
+- ✅ Instant player communication with Socket.IO
+- ✅ Draw detection (board full with no winner)
+- ✅ Lightweight (~50MB RAM) - runs on affordable cloud servers
 
 ## Future Enhancements
 
-- [ ] Consumer group for scalable move processing
-- [ ] WebSocket for real-time updates instead of polling
 - [ ] Database persistence (MongoDB/PostgreSQL)
 - [ ] User accounts and game history
 - [ ] AI opponent
 - [ ] Tournament mode with multiple rounds
+- [ ] Spectator mode
+- [ ] Chat during gameplay
 
 ## Troubleshooting
 
-### Kafka Connection Failed
-- Ensure Docker containers are running: `docker-compose ps`
-- Check Kafka logs: `docker-compose logs kafka`
-- Verify broker is accessible at `localhost:9092`
+### Backend Connection Failed
+- Ensure backend is running: `npm run dev --workspace=backend`
+- Check if port 3001 is available: `lsof -i :3001`
+- Verify no firewall blocking localhost connections
+
+### WebSocket Connection Issues
+- Check browser console for Socket.IO errors
+- Verify CORS origins in [backend/src/server.ts](backend/src/server.ts)
+- Try hard-refreshing the page (Ctrl+Shift+R)
 
 ### Moves Not Syncing
-- Check backend logs for Kafka producer errors
+- Check backend logs for any error messages
 - Verify both players are in the same room
-- Try refreshing the page to re-poll room state
+- Try refreshing the page to reconnect WebSocket
 
 ### Frontend Not Running
 - Clear node_modules: `rm -rf node_modules && npm install`
 - Check Vite config proxy settings
+- Ensure port 5173 is available
 
 ## License
 

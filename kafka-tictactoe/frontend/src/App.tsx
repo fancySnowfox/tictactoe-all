@@ -70,8 +70,8 @@ export default function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>⚡ Tic Tac Toe with Kafka</h1>
-        <p>Real-time multiplayer game using Kafka event streaming</p>
+        <h1>⚡ Tic Tac Toe</h1>
+        <p>Real-time multiplayer game with instant move synchronization</p>
       </header>
 
       <div className="app-content">
@@ -144,7 +144,7 @@ export default function App() {
           <h3>How it Works</h3>
           <ul>
             <li>🎮 Create or join a game room</li>
-            <li>📡 Moves are published to Kafka for real-time sync</li>
+            <li>📡 Moves sync in real-time via WebSocket</li>
             <li>⚡ See opponent's moves instantly</li>
             <li>👑 First to three in a row wins!</li>
           </ul>

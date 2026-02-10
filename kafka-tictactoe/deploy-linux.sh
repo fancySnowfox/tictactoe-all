@@ -58,18 +58,18 @@ echo
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NODE_USER="appuser"
 
-print_step "Step 1/7: Updating system packages..."
+print_step "Step 1/6: Updating system packages..."
 apt-get update -qq
 apt-get upgrade -y -qq
 print_success "System updated"
 echo
 
-print_step "Step 2/7: Installing required packages..."
+print_step "Step 2/6: Installing required packages..."
 apt-get install -y -qq curl wget git build-essential python3
 print_success "Required packages installed"
 echo
 
-print_step "Step 3/7: Installing Node.js (if not present)..."
+print_step "Step 3/6: Installing Node.js (if not present)..."
 if command -v node &> /dev/null; then
   NODE_VERSION=$(node -v)
   print_success "Node.js already installed: $NODE_VERSION"
@@ -81,7 +81,7 @@ else
 fi
 echo
 
-print_step "Step 4/7: Creating app user..."
+print_step "Step 4/6: Creating app user..."
 if id "$NODE_USER" &>/dev/null; then
   print_success "User '$NODE_USER' already exists"
 else
@@ -90,14 +90,14 @@ else
 fi
 echo
 
-print_step "Step 5/7: Installing project dependencies..."
+print_step "Step 5/6: Installing project dependencies..."
 cd "$APP_DIR"
 npm install --production --legacy-peer-deps 2>/dev/null
 npm run build --workspace=frontend 2>/dev/null || true
 print_success "Dependencies installed"
 echo
 
-print_step "Step 6/7: Setting permissions and creating directories..."
+print_step "Step 6/6: Setting permissions and creating directories..."
 chown -R "$NODE_USER:$NODE_USER" "$APP_DIR"
 chmod -R 755 "$APP_DIR"
 mkdir -p "$APP_DIR/logs"
@@ -106,12 +106,11 @@ chmod 755 "$APP_DIR/logs"
 print_success "Permissions configured"
 echo
 
-print_step "Step 7/7: Creating systemd service..."
+print_step "Step 6/6: Creating systemd service..."
 cat > /etc/systemd/system/tictactoe.service << 'EOF'
 [Unit]
 Description=Kafka Tic-Tac-Toe Game Service
-After=network-online.target docker.service
-Wants=docker.service
+After=network-online.target
 
 [Service]
 Type=simple
@@ -119,7 +118,6 @@ User=appuser
 WorkingDirectory=APP_DIR_PLACEHOLDER
 Environment="NODE_ENV=production"
 Environment="PORT=3001"
-Environment="KAFKA_BROKER=localhost:9092"
 ExecStart=/usr/bin/npm run dev
 Restart=always
 RestartSec=10
@@ -192,10 +190,10 @@ echo "  ✓ Logs to file: $APP_DIR/logs/"
 echo "  ✓ Integrated with systemd journal"
 echo
 echo "Next Steps:"
-echo "  1. Verify Kafka is running: docker-compose ps"
-echo "  2. Test health endpoint: curl http://localhost:3001/health"
-echo "  3. Check logs: sudo journalctl -u tictactoe -f"
+echo "  1. Test health endpoint: curl http://localhost:3001/health"
+echo "  2. Check logs: sudo journalctl -u tictactoe -f"
+echo "  3. Connect frontend to WebSocket at ws://localhost:3001"
 echo "  4. Configure Cloudflare DNS to point to this server"
-echo "  5. Set API URL environment variable if using remote domain"
+echo "  5. Frontend will auto-connect via Socket.IO"
 echo
 
