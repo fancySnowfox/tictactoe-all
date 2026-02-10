@@ -11,7 +11,6 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3001,
-        KAFKA_BROKER: process.env.KAFKA_BROKER || 'localhost:9092',
       },
       env_localhost: {
         NODE_ENV: 'development',

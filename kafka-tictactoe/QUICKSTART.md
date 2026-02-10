@@ -90,9 +90,9 @@ npm install
 ## Next Steps
 
 - Modify board sizes in the game (currently supports 3x3, 4x4, 5x5)
-- Implement WebSocket for real-time updates instead of polling
-- Add Kafka consumer to process moves asynchronously
 - Add persistent game history with a database
+- Implement chat or player communication
+- Add user authentication and player profiles
 
 ## Additional Commands
 
@@ -100,12 +100,9 @@ npm install
 # Build production versions
 npm run build
 
-# View Kafka logs
-docker-compose logs -f kafka
+# Build frontend only
+npm run build --workspace=frontend
 
-# Stop Kafka (keeping volumes)
-docker-compose stop
-
-# Stop Kafka (removing all data)
-docker-compose down -v
+# Build backend only
+npm run build --workspace=backend
 ```
