@@ -1,0 +1,171 @@
+# Apache Configuration for Kafka Tic-Tac-Toe
+# Location: /etc/apache2/sites-available/tictactoe.conf
+# Enable with: sudo a2ensite tictactoe
+# Required modules: sudo a2enmod proxy proxy_http proxy_wstunnel rewrite
+# Test with: sudo apache2ctl configtest
+# Reload with: sudo systemctl reload apache2
+
+<VirtualHost *:80>
+    ServerName yourdomain.com
+    ServerAlias www.yourdomain.com
+    
+    # Logging
+    ErrorLog ${APACHE_LOG_DIR}/tictactoe_error.log
+    CustomLog ${APACHE_LOG_DIR}/tictactoe_access.log combined
+    
+    # Document root for static frontend files
+    DocumentRoot /var/www/html
+    
+    # Enable required modules (if not already enabled system-wide)
+    # a2enmod proxy
+    # a2enmod proxy_http
+    # a2enmod proxy_wstunnel
+    # a2enmod rewrite
+    
+    # Enable mod_rewrite for SPA routing
+    <Directory /var/www/html>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+        
+        # SPA routing: Redirect all requests to index.html except actual files/directories
+        RewriteEngine On
+        RewriteBase /
+        RewriteRule ^index\.html$ - [L]
+        RewriteCond %{REQUEST_FILENAME} !-f
+        RewriteCond %{REQUEST_FILENAME} !-d
+        RewriteRule . /index.html [L]
+    </Directory>
+    
+    # Cache static assets
+    <FilesMatch "\.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$">
+        Header set Cache-Control "max-age=2592000, public"
+        ExpiresActive On
+        ExpiresDefault "access plus 30 days"
+    </FilesMatch>
+    
+    # Deny access to hidden files/directories
+    <FilesMatch "^\.|\.env">
+        Require all denied
+    </FilesMatch>
+    
+    # IMPORTANT: Enable WebSocket support
+    RewriteEngine On
+    
+    # Preserve original request headers
+    ProxyPreserveHost On
+    
+    # API Routes - Proxy to Node.js backend on port 3000
+    ProxyPass /api http://127.0.0.1:3000/api
+    ProxyPassReverse /api http://127.0.0.1:3000/api
+    
+    # Health check endpoint
+    ProxyPass /health http://127.0.0.1:3000/health
+    ProxyPassReverse /health http://127.0.0.1:3000/health
+    
+    # Socket.io WebSocket routes - CRITICAL for real-time communication
+    # Must use ws:// (WebSocket) protocol, not HTTP
+    ProxyPass /socket.io ws://127.0.0.1:3000/socket.io
+    ProxyPassReverse /socket.io ws://127.0.0.1:3000/socket.io
+    
+    # Set timeout for WebSocket connections (very long)
+    ProxyTimeout 7200
+    
+    # WebSocket connection settings
+    <Location /socket.io>
+        ProxyPass ws://127.0.0.1:3000/socket.io
+        ProxyPassReverse ws://127.0.0.1:3000/socket.io
+    </Location>
+    
+    # Forward important headers to backend
+    <Proxy *>
+        Order deny,allow
+        Allow from all
+    </Proxy>
+    
+    RequestHeader set X-Forwarded-Proto "http"
+    RequestHeader set X-Forwarded-Host "%{HTTP_HOST}s"
+    RequestHeader set X-Forwarded-For "%{REMOTE_ADDR}s"
+</VirtualHost>
+
+# HTTPS Configuration (uncomment after setting up SSL with Certbot)
+# <VirtualHost *:443>
+#     ServerName yourdomain.com
+#     ServerAlias www.yourdomain.com
+#     
+#     # SSL configuration (certbot will populate these)
+#     SSLEngine on
+#     SSLCertificateFile /etc/letsencrypt/live/yourdomain.com/fullchain.pem
+#     SSLCertificateKeyFile /etc/letsencrypt/live/yourdomain.com/privkey.pem
+#     
+#     # SSL security settings
+#     SSLProtocol all -SSLv2 -SSLv3 -TLSv1 -TLSv1.1
+#     SSLCipherSuite HIGH:!aNULL:!MD5
+#     SSLHonorCipherOrder on
+#     
+#     # HSTS header
+#     Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+#     
+#     ErrorLog ${APACHE_LOG_DIR}/tictactoe_error.log
+#     CustomLog ${APACHE_LOG_DIR}/tictactoe_access.log combined
+#     
+#     DocumentRoot /var/www/html
+#     
+#     <Directory /var/www/html>
+#         Options Indexes FollowSymLinks
+#         AllowOverride All
+#         Require all granted
+#         
+#         RewriteEngine On
+#         RewriteBase /
+#         RewriteRule ^index\.html$ - [L]
+#         RewriteCond %{REQUEST_FILENAME} !-f
+#         RewriteCond %{REQUEST_FILENAME} !-d
+#         RewriteRule . /index.html [L]
+#     </Directory>
+#     
+#     <FilesMatch "\.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$">
+#         Header set Cache-Control "max-age=2592000, public"
+#         ExpiresActive On
+#         ExpiresDefault "access plus 30 days"
+#     </FilesMatch>
+#     
+#     <FilesMatch "^\.|\.env">
+#         Require all denied
+#     </FilesMatch>
+#     
+#     RewriteEngine On
+#     ProxyPreserveHost On
+#     
+#     ProxyPass /api http://127.0.0.1:3000/api
+#     ProxyPassReverse /api http://127.0.0.1:3000/api
+#     
+#     ProxyPass /health http://127.0.0.1:3000/health
+#     ProxyPassReverse /health http://127.0.0.1:3000/health
+#     
+#     ProxyPass /socket.io ws://127.0.0.1:3000/socket.io
+#     ProxyPassReverse /socket.io ws://127.0.0.1:3000/socket.io
+#     
+#     ProxyTimeout 7200
+#     
+#     <Location /socket.io>
+#         ProxyPass ws://127.0.0.1:3000/socket.io
+#         ProxyPassReverse ws://127.0.0.1:3000/socket.io
+#     </Location>
+#     
+#     <Proxy *>
+#         Order deny,allow
+#         Allow from all
+#     </Proxy>
+#     
+#     RequestHeader set X-Forwarded-Proto "https"
+#     RequestHeader set X-Forwarded-Host "%{HTTP_HOST}s"
+#     RequestHeader set X-Forwarded-For "%{REMOTE_ADDR}s"
+# </VirtualHost>
+
+# Redirect HTTP to HTTPS
+# <VirtualHost *:80>
+#     ServerName yourdomain.com
+#     ServerAlias www.yourdomain.com
+#     Redirect permanent / https://yourdomain.com/
+# </VirtualHost>

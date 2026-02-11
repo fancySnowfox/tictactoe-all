@@ -5,8 +5,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:prod": "vite build --mode production",
     "preview": "vite preview",
-    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "deploy:nginx": "npm run build:prod && echo 'Built frontend. Copy dist/ directory to your Nginx server root (e.g., /var/www/html/)",
+    "deploy:apache": "npm run build:prod && echo 'Built frontend. Copy dist/ directory to your Apache server root (e.g., /var/www/html/)'",
+    "deploy:build": "npm run build:prod"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -21,5 +25,17 @@
     "@vitejs/plugin-react": "^4.2.1",
     "typescript": "^5.3.3",
     "vite": "^5.0.8"
+  },
+  "deploymentConfig": {
+    "nginx": {
+      "serverRoot": "/var/www/html",
+      "configPath": "/etc/nginx/sites-available/tictactoe",
+      "instructions": "1. Run 'npm run build:prod' 2. Copy dist/* to /var/www/html/3. See nginx.conf.example for reverse proxy configuration"
+    },
+    "apache": {
+      "serverRoot": "/var/www/html",
+      "configPath": "/etc/apache2/sites-available/tictactoe.conf",
+      "instructions": "1. Run 'npm run build:prod' 2. Copy dist/* to /var/www/html/3. See apache.conf.example for reverse proxy configuration"
+    }
   }
 }
