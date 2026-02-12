@@ -44,11 +44,24 @@ check_command() {
     fi
 }
 
+check_node_version() {
+    local node_version=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+    if [ "$node_version" -lt 18 ]; then
+        log_error "Node.js version 18+ is required. Current version: $(node -v)"
+        log_info "To upgrade Node.js on Ubuntu:"
+        log_info "  curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -"
+        log_info "  sudo apt install -y nodejs"
+        exit 1
+    fi
+    log_info "Node.js version check passed: $(node -v)"
+}
+
 # Pre-deployment checks
 log_info "Running pre-deployment checks..."
 
 check_command "git"
 check_command "node"
+check_node_version
 check_command "npm"
 check_command "nginx"
 
@@ -202,8 +215,8 @@ else
 fi
 
 # Test backend
-if timeout 5 curl -s http://localhost:3000/health > /dev/null 2>&1; then
-    log_info "Backend responding on :3000 ✓"
+if timeout 5 curl -s http://localhost:3001/health > /dev/null 2>&1; then
+    log_info "Backend responding on :3001 ✓"
 else
     log_warn "Backend health check failed (may need time to start)"
 fi
@@ -215,7 +228,7 @@ echo "=========================================="
 echo ""
 echo "Domain: $DOMAIN"
 echo "Frontend: $WEB_ROOT"
-echo "Backend: http://localhost:3000"
+echo "Backend: http://localhost:3001"
 echo "Deploy Directory: $DEPLOY_DIR"
 echo ""
 echo "Next Steps:"

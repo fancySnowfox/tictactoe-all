@@ -8,6 +8,25 @@ echo Kafka Tic-Tac-Toe Deployment
 echo ================================
 echo.
 
+REM Check Node.js version
+echo ^> Checking Node.js version...
+for /f "tokens=*" %%i in ('node -v 2^>nul') do set NODE_VERSION=%%i
+if "%NODE_VERSION%"=="" (
+    echo [ERROR] Node.js is not installed
+    exit /b 1
+)
+
+REM Extract major version (e.g., "v18.0.0" -> "18")
+for /f "tokens=1,2 delims=." %%a in ("%NODE_VERSION:v=%") do set NODE_MAJOR=%%a
+
+if %NODE_MAJOR% LSS 18 (
+    echo [ERROR] Node.js version 18+ is required. Current version: %NODE_VERSION%
+    echo [INFO] Download Node.js 18 or later from https://nodejs.org/
+    exit /b 1
+)
+echo [OK] Node.js version %NODE_VERSION% is OK
+echo.
+
 REM 1. Stop existing containers
 echo ^> Stopping existing Docker containers...
 docker-compose down -v >nul 2>&1

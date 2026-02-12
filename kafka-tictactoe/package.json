@@ -19,6 +19,10 @@
     "deploy:backend:prod": "npm run build:prod --workspace=backend",
     "deploy:full:prod": "npm run build:prod && echo 'All builds complete. Ready for production deployment.'"
   },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
   "dependencies": {
     "cors": "^2.8.6",
     "uuid": "^13.0.0"
@@ -33,7 +37,7 @@
       },
       "backend": {
         "type": "Node.js/Express Server with Socket.io",
-        "port": 3000,
+        "port": 3001,
         "deployment": "Run as service, proxied through Nginx/Apache",
         "websockets": true
       },
@@ -56,7 +60,7 @@
         "8. Start backend with PM2 or systemd"
       ],
       "keyFeatures": [
-        "Reverse proxy to backend on port 3000",
+        "Reverse proxy to backend on port 3001",
         "WebSocket upgrade for socket.io",
         "Static file serving for frontend",
         "HTTP/2 support"
@@ -76,7 +80,7 @@
         "8. Start backend with PM2 or systemd"
       ],
       "keyFeatures": [
-        "Reverse proxy to backend on port 3000",
+        "Reverse proxy to backend on port 3001",
         "WebSocket tunnel for socket.io",
         "Static file serving for frontend",
         "mod_rewrite for SPA routing"
@@ -99,7 +103,7 @@
     },
     "environmentVariables": {
       "NODE_ENV": "production",
-      "PORT": "3000",
+      "PORT": "3001",
       "KAFKA_BROKER": "localhost:9092",
       "CORS_ORIGIN": "https://yourdomain.com",
       "LOG_LEVEL": "info"
@@ -110,7 +114,7 @@
       "certbot-apache": "sudo apt install certbot python3-certbot-apache && sudo certbot --apache -d yourdomain.com"
     },
     "healthCheck": {
-      "backend": "http://localhost:3000/health",
+      "backend": "http://localhost:3001/health",
       "frontend": "Check /index.html loads",
       "socket.io": "Check browser console for connection"
     }

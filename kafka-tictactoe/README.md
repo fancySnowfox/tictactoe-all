@@ -13,8 +13,37 @@ A real-time multiplayer tic-tac-toe game using Socket.IO for instant updates and
 
 ### Prerequisites
 
-- Node.js 18+
+- **Node.js 18+** ⚠️ (Ubuntu default: Node.js 12 - see upgrade instructions below)
 - npm or yarn
+
+#### Check Your Node.js Version
+
+```bash
+node -v
+```
+
+If you have Node.js 12 or older, upgrade to Node.js 18+:
+
+**macOS (using Homebrew):**
+```bash
+brew install node@18
+brew unlink node
+brew link node@18
+```
+
+**Ubuntu/Debian (⚠️ fixes the Node.js 12 issue on Ubuntu):**
+```bash
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+**Windows:**
+Download from [nodejs.org](https://nodejs.org/)
+
+Verify after upgrade:
+```bash
+node -v  # Should show v18.x.x or higher
+```
 
 ### 1. Install Dependencies
 

@@ -55,26 +55,26 @@
     # Preserve original request headers
     ProxyPreserveHost On
     
-    # API Routes - Proxy to Node.js backend on port 3000
-    ProxyPass /api http://127.0.0.1:3000/api
-    ProxyPassReverse /api http://127.0.0.1:3000/api
+    # API Routes - Proxy to Node.js backend on port 3001
+    ProxyPass /api http://127.0.0.1:3001/api
+    ProxyPassReverse /api http://127.0.0.1:3001/api
     
     # Health check endpoint
-    ProxyPass /health http://127.0.0.1:3000/health
-    ProxyPassReverse /health http://127.0.0.1:3000/health
+    ProxyPass /health http://127.0.0.1:3001/health
+    ProxyPassReverse /health http://127.0.0.1:3001/health
     
     # Socket.io WebSocket routes - CRITICAL for real-time communication
     # Must use ws:// (WebSocket) protocol, not HTTP
-    ProxyPass /socket.io ws://127.0.0.1:3000/socket.io
-    ProxyPassReverse /socket.io ws://127.0.0.1:3000/socket.io
+    ProxyPass /socket.io ws://127.0.0.1:3001/socket.io
+    ProxyPassReverse /socket.io ws://127.0.0.1:3001/socket.io
     
     # Set timeout for WebSocket connections (very long)
     ProxyTimeout 7200
     
     # WebSocket connection settings
     <Location /socket.io>
-        ProxyPass ws://127.0.0.1:3000/socket.io
-        ProxyPassReverse ws://127.0.0.1:3000/socket.io
+        ProxyPass ws://127.0.0.1:3001/socket.io
+        ProxyPassReverse ws://127.0.0.1:3001/socket.io
     </Location>
     
     # Forward important headers to backend
@@ -137,11 +137,11 @@
 #     RewriteEngine On
 #     ProxyPreserveHost On
 #     
-#     ProxyPass /api http://127.0.0.1:3000/api
-#     ProxyPassReverse /api http://127.0.0.1:3000/api
+#     ProxyPass /api http://127.0.0.1:3001/api
+#     ProxyPassReverse /api http://127.0.0.1:3001/api
 #     
-#     ProxyPass /health http://127.0.0.1:3000/health
-#     ProxyPassReverse /health http://127.0.0.1:3000/health
+#     ProxyPass /health http://127.0.0.1:3001/health
+#     ProxyPassReverse /health http://127.0.0.1:3001/health
 #     
 #     ProxyPass /socket.io ws://127.0.0.1:3000/socket.io
 #     ProxyPassReverse /socket.io ws://127.0.0.1:3000/socket.io

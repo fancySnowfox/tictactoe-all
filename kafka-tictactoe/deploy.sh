@@ -9,6 +9,7 @@ echo "================================"
 # Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Function to print colored output
@@ -19,6 +20,27 @@ print_step() {
 print_success() {
   echo -e "${GREEN}✓ $1${NC}"
 }
+
+print_error() {
+  echo -e "${RED}✗ $1${NC}"
+}
+
+# Check Node.js version
+print_step "Checking Node.js version..."
+if ! command -v node &> /dev/null; then
+  print_error "Node.js is not installed"
+  exit 1
+fi
+
+NODE_MAJOR=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+if [ "$NODE_MAJOR" -lt 18 ]; then
+  print_error "Node.js version 18+ is required. Current version: $(node -v)"
+  print_step "To upgrade Node.js:"
+  echo "  macOS: brew install node@18"
+  echo "  Ubuntu/Debian: curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - && sudo apt install -y nodejs"
+  exit 1
+fi
+print_success "Node.js version $(node -v) is OK"
 
 # 1. Install dependencies
 print_step "Installing project dependencies..."

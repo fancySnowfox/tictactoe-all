@@ -10,7 +10,7 @@ ExecStart=/usr/bin/node /var/www/kafka-tictactoe/backend/dist/server.js
 
 # Environment variables
 Environment="NODE_ENV=production"
-Environment="PORT=3000"
+Environment="PORT=3001"
 Environment="KAFKA_BROKER=localhost:9092"
 Environment="LOG_LEVEL=info"
 Environment="CORS_ORIGIN=https://yourdomain.com"

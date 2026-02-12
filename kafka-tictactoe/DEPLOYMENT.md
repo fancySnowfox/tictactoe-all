@@ -5,7 +5,7 @@
 This guide covers deploying the Kafka Tic-Tac-Toe application with either **Nginx** or **Apache** as the web server. The architecture consists of:
 
 - **Frontend**: React app (Vite) - static files served via Nginx/Apache
-- **Backend**: Node.js/Express with Socket.io - running on port 3000
+- **Backend**: Node.js/Express with Socket.io - running on port 3001
 - **Kafka**: Message broker (Docker) - port 9092
 - **Web Server**: Nginx or Apache - reverse proxy and static file serving
 
@@ -16,8 +16,8 @@ User Browser (HTTPS)
     ↓
 Nginx/Apache (Port 443)
     ├─→ Static Files (React Frontend)
-    ├─→ /api/* → Backend (Port 3000)
-    └─→ /socket.io → Backend WebSocket (Port 3000)
+    ├─→ /api/* → Backend (Port 3001)
+    └─→ /socket.io → Backend WebSocket (Port 3001)
          ↓
     Node.js Backend
          ↓
@@ -27,7 +27,7 @@ Nginx/Apache (Port 443)
 ## Prerequisites
 
 - Linux server (Ubuntu 20.04+ recommended)
-- Node.js 18+ and npm
+- **Node.js 18+ and npm** (⚠️ Ubuntu 12 default has Node.js 12 - requires update)
 - Docker and docker-compose (for Kafka)
 - SSL certificate (Let's Encrypt recommended)
 - Domain name pointing to server
@@ -40,9 +40,17 @@ Nginx/Apache (Port 443)
 # Update system
 sudo apt update && sudo apt upgrade -y
 
-# Install Node.js
+# Check current Node.js version
+node -v
+
+# If Node.js is NOT installed or version is < 18:
+# Install or upgrade to Node.js 18+
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 sudo apt install -y nodejs
+
+# Verify installation
+node -v  # Should show v18.x.x or higher
+npm -v   # Should show 8.x.x or higher
 
 # Install PM2 globally (process manager)
 sudo npm install -g pm2
@@ -250,7 +258,7 @@ Create `.env` file or export in startup scripts:
 
 ```bash
 NODE_ENV=production
-PORT=3000
+PORT=3001
 KAFKA_BROKER=localhost:9092
 CORS_ORIGIN=https://yourdomain.com
 LOG_LEVEL=info
@@ -274,7 +282,7 @@ sudo systemctl status tictactoe-backend
 docker-compose ps
 
 # Test connectivity
-curl http://localhost:3000/health
+curl http://localhost:3001/health
 curl https://yourdomain.com/
 ```
 
@@ -334,9 +342,9 @@ If running multiple backend instances:
 ```nginx
 # In upstream block:
 upstream backend {
-    server 127.0.0.1:3000;
     server 127.0.0.1:3001;
     server 127.0.0.1:3002;
+    server 127.0.0.1:3003;
 }
 ```
 
@@ -345,8 +353,8 @@ With multiple backends, ensure Socket.io sticky sessions:
 ```nginx
 upstream backend {
     hash $remote_addr;  # IP-based sticky sessions
-    server 127.0.0.1:3000;
     server 127.0.0.1:3001;
+    server 127.0.0.1:3002;
 }
 ```
 
@@ -361,7 +369,7 @@ upstream backend {
 ### 502 Bad Gateway
 - Check if backend is running: `pm2 status` or `systemctl status tictactoe-backend`
 - Check backend logs
-- Verify port 3000 is accessible: `netstat -tuln | grep 3000`
+- Verify port 3001 is accessible: `netstat -tuln | grep 3001`
 
 ### High Memory Usage
 - Set `max_memory_restart` in PM2 config

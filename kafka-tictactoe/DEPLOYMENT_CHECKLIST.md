@@ -99,7 +99,7 @@
 ### Connectivity Tests
 - [ ] Port 80 (HTTP) accessible
 - [ ] Port 443 (HTTPS) accessible
-- [ ] Port 3000 (Backend) NOT publicly accessible
+- [ ] Port 3001 (Backend) NOT publicly accessible
 - [ ] Firewall rules correct
 
 ### Application Tests

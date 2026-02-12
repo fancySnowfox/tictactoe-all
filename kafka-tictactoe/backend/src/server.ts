@@ -13,7 +13,7 @@ const io = new SocketIOServer(server, {
   cors: {
     origin: [
       'http://localhost:5173',
-      'http://localhost:3000',
+      'http://localhost:3001',
       'http://tictactoe.snowfox.club',
       'https://tictactoe.snowfox.club',
     ],
@@ -25,7 +25,7 @@ const io = new SocketIOServer(server, {
 app.use(cors({
   origin: [
     'http://localhost:5173',
-    'http://localhost:3000',
+    'http://localhost:3001',
     'http://tictactoe.snowfox.club',
     'https://tictactoe.snowfox.club',
   ],

@@ -72,10 +72,17 @@ echo
 print_step "Step 3/6: Installing Node.js (if not present)..."
 if command -v node &> /dev/null; then
   NODE_VERSION=$(node -v)
-  print_success "Node.js already installed: $NODE_VERSION"
+  NODE_MAJOR=$(echo $NODE_VERSION | cut -d'v' -f2 | cut -d'.' -f1)
+  if [ "$NODE_MAJOR" -lt 18 ]; then
+    print_warn "Node.js version $NODE_VERSION is installed, but version 18+ is required."
+    print_warn "Upgrading to Node.js 18..."
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - 2>/dev/null
+    apt-get install -y nodejs
+  fi
+  print_success "Node.js version check passed: $(node -v)"
 else
-  print_warn "Node.js not found. Installing..."
-  curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - 2>/dev/null
+  print_warn "Node.js not found. Installing Node.js 18..."
+  curl -fsSL https://deb.nodesource.com/setup_18.x | bash - 2>/dev/null
   apt-get install -y nodejs
   print_success "Node.js installed: $(node -v)"
 fi
