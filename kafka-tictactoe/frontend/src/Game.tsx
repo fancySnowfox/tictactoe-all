@@ -1,0 +1,135 @@
+import { useEffect, useState } from 'react'
+import { io, Socket } from 'socket.io-client'
+
+interface GameProps {
+  gameData: any
+  onBackToMenu: () => void
+}
+
+function Game({ gameData, onBackToMenu }: GameProps) {
+  const [grid, setGrid] = useState<(number | null)[]>(gameData.room.grid)
+  const [nextPlayer, setNextPlayer] = useState<number>(gameData.room.nextPlayer)
+  const [winner, setWinner] = useState<number | null>(gameData.room.winner)
+  const [players, setPlayers] = useState<any[]>(gameData.room.players)
+  const [socket, setSocket] = useState<Socket | null>(null)
+  const [gameStatus, setGameStatus] = useState<string>('Waiting for opponent...')
+
+  const clientId = gameData.clientId
+  const roomId = gameData.roomId || gameData.room.id
+
+  useEffect(() => {
+    const newSocket = io({
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 5
+    })
+
+    newSocket.on('connect', () => {
+      console.log('Connected to server')
+      newSocket.emit('room:join', { roomId, clientId })
+    })
+
+    newSocket.on('room:state', (data) => {
+      setPlayers(data.players)
+      setGrid(data.grid)
+      setNextPlayer(data.nextPlayer)
+      setWinner(data.winner)
+
+      if (data.players.length === 2) {
+        setGameStatus('Game started!')
+      }
+    })
+
+    newSocket.on('game:state-updated', (data) => {
+      setGrid(data.grid)
+      setNextPlayer(data.nextPlayer)
+      setWinner(data.winner)
+
+      if (data.winner) {
+        setGameStatus(`Player ${data.winner} wins!`)
+      } else if (data.isDraw) {
+        setGameStatus('Game is a draw!')
+      }
+    })
+
+    newSocket.on('room:player-disconnected', () => {
+      setGameStatus('Opponent disconnected')
+    })
+
+    newSocket.on('error', (error) => {
+      console.error('Game error:', error)
+      setGameStatus(`Error: ${error.message}`)
+    })
+
+    setSocket(newSocket)
+
+    return () => {
+      newSocket.disconnect()
+    }
+  }, [roomId, clientId])
+
+  const handleCellClick = (index: number) => {
+    if (grid[index] !== null || winner) {
+      return
+    }
+
+    if (socket) {
+      socket.emit('game:move', { roomId, clientId, index })
+    }
+  }
+
+  const currentPlayer = players.find((p) => p.clientId === clientId)
+  const playerIndex = players.findIndex((p) => p.clientId === clientId) + 1
+
+  return (
+    <div className="game-container">
+      <div className="game-info">
+        <div className="room-info">
+          <h2>Room: {roomId}</h2>
+          <p className="status">{gameStatus}</p>
+        </div>
+
+        <div className="players-info">
+          <h3>Players:</h3>
+          {players.map((player, idx) => (
+            <div key={idx} className="player-badge">
+              <span>{player.name}</span>
+              {idx + 1 === playerIndex && <span className="you"> (You)</span>}
+            </div>
+          ))}
+        </div>
+
+        {players.length === 2 && !winner && (
+          <div className="turn-info">
+            <p>Player {nextPlayer}'s turn</p>
+          </div>
+        )}
+
+        {winner && (
+          <div className="winner-info">
+            <p>🎉 Player {winner} wins! 🎉</p>
+          </div>
+        )}
+      </div>
+
+      <div className="game-board">
+        {grid.map((cell, index) => (
+          <div
+            key={index}
+            className="game-cell"
+            onClick={() => handleCellClick(index)}
+          >
+            {cell === 1 ? 'X' : cell === 2 ? 'O' : ''}
+          </div>
+        ))}
+      </div>
+
+      <button className="btn btn-secondary" onClick={onBackToMenu}>
+        Back to Menu
+      </button>
+    </div>
+  )
+}
+
+export default Game

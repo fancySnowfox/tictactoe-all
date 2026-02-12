@@ -1,0 +1,174 @@
+import { useState } from 'react'
+import Game from './Game'
+import './App.css'
+
+type AppState = 'menu' | 'create' | 'join' | 'playing'
+
+function App() {
+  const [appState, setAppState] = useState<AppState>('menu')
+  const [playerName, setPlayerName] = useState('')
+  const [roomId, setRoomId] = useState('')
+  const [gameData, setGameData] = useState<any>(null)
+
+  const handleCreateGame = async () => {
+    if (!playerName.trim()) {
+      alert('Please enter your name')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerName, dimensions: 3 }),
+      })
+      const data = await response.json()
+      setGameData(data)
+      setRoomId(data.roomId)
+      setAppState('playing')
+    } catch (error) {
+      console.error('Failed to create game:', error)
+      alert('Failed to create game')
+    }
+  }
+
+  const handleJoinGame = async () => {
+    if (!playerName.trim()) {
+      alert('Please enter your name')
+      return
+    }
+    if (!roomId.trim()) {
+      alert('Please enter a room ID')
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/rooms/${roomId}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerName }),
+      })
+      if (!response.ok) {
+        throw new Error('Failed to join room')
+      }
+      const data = await response.json()
+      setGameData({ ...data, roomId })
+      setAppState('playing')
+    } catch (error) {
+      console.error('Failed to join game:', error)
+      alert('Failed to join game. Check the room ID.')
+    }
+  }
+
+  const handleBackToMenu = () => {
+    setAppState('menu')
+    setPlayerName('')
+    setRoomId('')
+    setGameData(null)
+  }
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <h1>Tic-Tac-Toe Multiplayer</h1>
+      </header>
+
+      {appState === 'menu' && (
+        <div className="menu-container">
+          <div className="menu-box">
+            <h2>Welcome to Tic-Tac-Toe!</h2>
+            <p>Play real-time games with other players</p>
+            <div className="menu-buttons">
+              <button 
+                className="btn btn-primary" 
+                onClick={() => setAppState('create')}
+              >
+                Create Game
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setAppState('join')}
+              >
+                Join Game
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {appState === 'create' && (
+        <div className="menu-container">
+          <div className="menu-box">
+            <h2>Create New Game</h2>
+            <input
+              type="text"
+              placeholder="Enter your name"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              className="input-field"
+            />
+            <div className="menu-buttons">
+              <button 
+                className="btn btn-primary" 
+                onClick={handleCreateGame}
+              >
+                Create
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setAppState('menu')}
+              >
+                Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {appState === 'join' && (
+        <div className="menu-container">
+          <div className="menu-box">
+            <h2>Join Game</h2>
+            <input
+              type="text"
+              placeholder="Enter your name"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              className="input-field"
+            />
+            <input
+              type="text"
+              placeholder="Enter room ID"
+              value={roomId}
+              onChange={(e) => setRoomId(e.target.value.toUpperCase())}
+              className="input-field"
+            />
+            <div className="menu-buttons">
+              <button 
+                className="btn btn-primary" 
+                onClick={handleJoinGame}
+              >
+                Join
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setAppState('menu')}
+              >
+                Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {appState === 'playing' && gameData && (
+        <Game 
+          gameData={gameData} 
+          onBackToMenu={handleBackToMenu}
+        />
+      )}
+    </div>
+  )
+}
+
+export default App
