@@ -1,0 +1,287 @@
+import express from 'express';
+import cors from 'cors';
+import http from 'http';
+import { Server as SocketIOServer } from 'socket.io';
+import { v4 as uuidv4 } from 'uuid';
+const app = express();
+const server = http.createServer(app);
+const PORT = process.env.PORT || 3001;
+// Socket.IO setup with CORS
+const io = new SocketIOServer(server, {
+    cors: {
+        origin: [
+            'http://localhost:5173',
+            'http://localhost:3001',
+            'http://tictactoe.snowfox.club',
+            'https://tictactoe.snowfox.club',
+        ],
+        credentials: true,
+    },
+});
+// Middleware
+app.use(cors({
+    origin: [
+        'http://localhost:5173',
+        'http://localhost:3001',
+        'http://tictactoe.snowfox.club',
+        'https://tictactoe.snowfox.club',
+    ],
+    credentials: true,
+}));
+app.use(express.json());
+const gameRooms = new Map();
+// Track socket to room mapping
+const socketToRoom = new Map();
+// Check for winner
+function checkWinner(grid, dimensions) {
+    // Check rows
+    for (let row = 0; row < dimensions; row++) {
+        for (let col = 0; col < dimensions - 2; col++) {
+            const idx = row * dimensions + col;
+            if (grid[idx] !== null &&
+                grid[idx] === grid[idx + 1] &&
+                grid[idx] === grid[idx + 2]) {
+                return grid[idx];
+            }
+        }
+    }
+    // Check columns
+    for (let col = 0; col < dimensions; col++) {
+        for (let row = 0; row < dimensions - 2; row++) {
+            const idx = row * dimensions + col;
+            if (grid[idx] !== null &&
+                grid[idx] === grid[idx + dimensions] &&
+                grid[idx] === grid[idx + dimensions * 2]) {
+                return grid[idx];
+            }
+        }
+    }
+    // Check diagonals (top-left to bottom-right)
+    for (let row = 0; row < dimensions - 2; row++) {
+        for (let col = 0; col < dimensions - 2; col++) {
+            const idx = row * dimensions + col;
+            if (grid[idx] !== null &&
+                grid[idx] === grid[idx + dimensions + 1] &&
+                grid[idx] === grid[idx + (dimensions + 1) * 2]) {
+                return grid[idx];
+            }
+        }
+    }
+    // Check diagonals (top-right to bottom-left)
+    for (let row = 0; row < dimensions - 2; row++) {
+        for (let col = 2; col < dimensions; col++) {
+            const idx = row * dimensions + col;
+            if (grid[idx] !== null &&
+                grid[idx] === grid[idx + dimensions - 1] &&
+                grid[idx] === grid[idx + (dimensions - 1) * 2]) {
+                return grid[idx];
+            }
+        }
+    }
+    return null;
+}
+// Check if board is full
+function isBoardFull(grid) {
+    return grid.every((cell) => cell !== null);
+}
+// REST API Endpoints (keep these for frontend compatibility)
+// Create a new game room
+app.post('/api/rooms', (req, res) => {
+    const { playerName, dimensions = 3 } = req.body;
+    const roomId = uuidv4().substring(0, 8).toUpperCase();
+    const clientId = uuidv4();
+    const room = {
+        id: roomId,
+        players: [{ clientId, name: playerName || 'Player 1' }],
+        grid: new Array(dimensions * dimensions).fill(null),
+        dimensions,
+        nextPlayer: 1,
+        started: false,
+        winner: null,
+        createdAt: Date.now(),
+    };
+    gameRooms.set(roomId, room);
+    res.json({
+        roomId,
+        clientId,
+        room,
+    });
+});
+// Join a game room
+app.post('/api/rooms/:roomId/join', (req, res) => {
+    const { roomId } = req.params;
+    const { playerName } = req.body;
+    const room = gameRooms.get(roomId);
+    if (!room) {
+        return res.status(404).json({ error: 'Room not found' });
+    }
+    if (room.players.length >= 2) {
+        return res.status(400).json({ error: 'Room is full' });
+    }
+    const clientId = uuidv4();
+    room.players.push({ clientId, name: playerName || 'Player 2' });
+    res.json({
+        clientId,
+        room,
+    });
+});
+// Get room status
+app.get('/api/rooms/:roomId', (req, res) => {
+    const { roomId } = req.params;
+    const room = gameRooms.get(roomId);
+    if (!room) {
+        return res.status(404).json({ error: 'Room not found' });
+    }
+    res.json(room);
+});
+// Make a move
+app.post('/api/rooms/:roomId/move', (req, res) => {
+    const { roomId } = req.params;
+    const { clientId, index } = req.body;
+    const room = gameRooms.get(roomId);
+    if (!room) {
+        return res.status(404).json({ error: 'Room not found' });
+    }
+    const player = room.players.find((p) => p.clientId === clientId);
+    if (!player) {
+        return res.status(400).json({ error: 'Player not found in room' });
+    }
+    if (room.grid[index] !== null) {
+        return res.status(400).json({ error: 'Square already occupied' });
+    }
+    // Apply move
+    const playerValue = room.nextPlayer;
+    room.grid[index] = playerValue;
+    // Check for winner
+    const winner = checkWinner(room.grid, room.dimensions);
+    if (winner) {
+        room.winner = winner;
+    }
+    // Check if board is full (draw)
+    const boardFull = isBoardFull(room.grid);
+    room.nextPlayer = playerValue === 1 ? 2 : 1;
+    // Broadcast game state to all players in room via Socket.IO
+    io.to(roomId).emit('game:state-updated', {
+        roomId,
+        grid: room.grid,
+        nextPlayer: room.nextPlayer,
+        winner: room.winner,
+        boardFull,
+        isDraw: boardFull && !room.winner,
+        timestamp: Date.now(),
+    });
+    res.json({ success: true, room });
+});
+// Health check
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+// Socket.IO event handlers
+io.on('connection', (socket) => {
+    console.log(`✓ Client connected: ${socket.id}`);
+    // Join a game room
+    socket.on('room:join', ({ roomId, clientId }) => {
+        const room = gameRooms.get(roomId);
+        if (!room) {
+            socket.emit('error', { message: 'Room not found' });
+            return;
+        }
+        // Update socket ID for player
+        const player = room.players.find((p) => p.clientId === clientId);
+        if (player) {
+            player.socketId = socket.id;
+        }
+        // Join socket to room
+        socket.join(roomId);
+        socketToRoom.set(socket.id, roomId);
+        // Notify all players in room
+        io.to(roomId).emit('room:state', {
+            roomId,
+            players: room.players.map((p) => ({ clientId: p.clientId, name: p.name })),
+            grid: room.grid,
+            nextPlayer: room.nextPlayer,
+            winner: room.winner,
+            timestamp: Date.now(),
+        });
+        console.log(`✓ Client ${socket.id} joined room ${roomId}`);
+    });
+    // Handle move
+    socket.on('game:move', ({ roomId, clientId, index }) => {
+        const room = gameRooms.get(roomId);
+        if (!room) {
+            socket.emit('error', { message: 'Room not found' });
+            return;
+        }
+        const player = room.players.find((p) => p.clientId === clientId);
+        if (!player) {
+            socket.emit('error', { message: 'Player not found' });
+            return;
+        }
+        if (room.grid[index] !== null) {
+            socket.emit('error', { message: 'Square already occupied' });
+            return;
+        }
+        // Apply move
+        const playerValue = room.nextPlayer;
+        room.grid[index] = playerValue;
+        // Check for winner
+        const winner = checkWinner(room.grid, room.dimensions);
+        if (winner) {
+            room.winner = winner;
+        }
+        // Check if board is full
+        const boardFull = isBoardFull(room.grid);
+        room.nextPlayer = playerValue === 1 ? 2 : 1;
+        // Broadcast updated state to all players in room
+        io.to(roomId).emit('game:state-updated', {
+            roomId,
+            grid: room.grid,
+            nextPlayer: room.nextPlayer,
+            winner: room.winner,
+            boardFull,
+            isDraw: boardFull && !room.winner,
+            timestamp: Date.now(),
+        });
+    });
+    // Handle disconnect
+    socket.on('disconnect', () => {
+        const roomId = socketToRoom.get(socket.id);
+        socketToRoom.delete(socket.id);
+        if (roomId) {
+            const room = gameRooms.get(roomId);
+            if (room) {
+                // Remove player from room
+                room.players = room.players.filter((p) => p.socketId !== socket.id);
+                if (room.players.length === 0) {
+                    // Delete room if empty
+                    gameRooms.delete(roomId);
+                    console.log(`✓ Room ${roomId} deleted (empty)`);
+                }
+                else {
+                    // Notify remaining players
+                    io.to(roomId).emit('room:player-disconnected', { roomId });
+                }
+            }
+        }
+        console.log(`✓ Client disconnected: ${socket.id}`);
+    });
+});
+// Start server
+let started = false;
+function startServer() {
+    if (started)
+        return;
+    started = true;
+    server.listen(PORT, () => {
+        console.log(`✓ Server running on http://localhost:${PORT}`);
+        console.log(`✓ WebSocket ready for connections`);
+    });
+}
+// Graceful shutdown
+process.on('SIGINT', () => {
+    console.log('Shutting down gracefully...');
+    server.close(() => {
+        process.exit(0);
+    });
+});
+startServer();
